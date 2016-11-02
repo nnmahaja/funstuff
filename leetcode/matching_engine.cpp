@@ -82,14 +82,6 @@ private:
       order_book.insert(itr, book_entry_type(price, quantity, o_id));
     }
   }
-  /*
-  void process_sell(std::string type, int price, int quantity, std::string o_id) {
-    if (type.compare("GFD") == 0) {
-      
-    } else {
-      // try to match this order immediately, if no match, delete
-    }
-  }*/
   
   void process_modify(std::string modify_to, const book_entry_type& order) {
     int price = order.price;
@@ -103,56 +95,58 @@ private:
       // not present in buy_book, should be there in sell_book
       itr1 = std::find_if(sell_book.begin(), sell_book.end(), 
 			  [o_id](const book_entry_type& e){return (o_id.compare(e.order_id) == 0);});
-      // insert at the correct location
-      
       // erase it
+      itr1 = sell_book.erase(itr1);
+      
     } else {
       // present in buy_book
-      // insert at the correct location
-    
-      // erase it
+      
+      // erase the found order
+      itr1 = buy_book.erase(itr1);
+      
     }
     
+    // insert order in appropriate book
+    if (modify_to.compare("SELL") == 0) {
+      auto itr = std::find_if(sell_book.begin(), sell_book.end(), 
+			      [price](const book_entry_type& e){return price > e.price;});
+      sell_book.insert(itr, order);
+    } else {
+      auto itr = std::find_if(buy_book.begin(), buy_book.end(), 
+			      [price](const book_entry_type& e){return price > e.price;});
+      buy_book.insert(itr, order);
+    }
   }
   
   void process_cancel(std::string o_id) {
     canceled_orders.insert(o_id);
   }
   
+  void print_book(const book_type& book) const {
+    int curr_price = 0, curr_quant = 0;
+    for (auto itr = book.begin(); itr != book.end(); ++itr) {
+      curr_price = itr->price;
+      curr_quant += itr->quant;
+      auto nx = std::next(itr, 1);
+      if ((nx != book.end()) && 
+	  (nx->price == curr_price)) {
+	// keep adding to the current price and quantity
+      } else {
+	// print it
+	std::cout << curr_price << " " << curr_quant << std::endl;
+	curr_price = 0, curr_quant = 0;
+      }
+    }
+  }
+  
   void process_print() const {
     // iterate the books which are already in descending order of price
     // accumulate quantities with same price
     std::cout << "SELL:" << std::endl;
-    int curr_price = 0, curr_quant = 0;
-    for (auto itr = sell_book.begin(); itr != sell_book.end(); ++itr) {
-      curr_price = itr->price;
-      curr_quant += itr->quant;
-      auto nx = std::next(itr, 1);
-      if ((nx != sell_book.end()) && 
-	  (nx->price == curr_price)) {
-	// keep adding to the current price and quantity
-      } else {
-	// print it
-	std::cout << curr_price << " " << curr_quant << std::endl;
-	curr_price = 0, curr_quant = 0;
-      }
-    }
+    print_book(sell_book);
     
     std::cout << "BUY:" << std::endl;
-    curr_price = 0, curr_quant = 0;
-    for (auto itr = buy_book.begin(); itr != buy_book.end(); ++itr) {
-      curr_price += itr->price;
-      curr_quant += itr->quant;
-      auto nx = std::next(itr, 1);
-      if ((nx != buy_book.end()) && 
-	  (nx->price == curr_price)) {
-	// keep adding to the current price and quantity
-      } else {
-	// print it
-	std::cout << curr_price << " " << curr_quant << std::endl;
-	curr_price = 0, curr_quant = 0;
-      }
-    }
+    print_book(buy_book);
   }
   
   inline
